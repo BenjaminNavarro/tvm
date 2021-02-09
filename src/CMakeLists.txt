@@ -233,22 +233,55 @@ set(TVM_ROBOT_HEADERS
   ${TVM_INCLUDE_DIR}/utils/sch.h
 )
 
+set(TVM_SOURCES_GROUP TVM_SOURCES)
+set(TVM_HEADERS_GROUP TVM_HEADERS)
+
 if(TVM_WITH_ROBOT)
-  list(APPEND TVM_SOURCES ${TVM_ROBOT_SOURCES})
-  list(APPEND TVM_HEADERS ${TVM_ROBOT_HEADERS})
+  list(APPEND TVM_SOURCES_GROUP ${TVM_ROBOT_SOURCES})
+  list(APPEND TVM_HEADERS_GROUP ${TVM_ROBOT_HEADERS})
+
+  add_library(TVM-Robot SHARED ${TVM_ROBOT_SOURCES} ${TVM_ROBOT_HEADERS} ${TVM_HEADERS})
+  add_library(TVM::Robot ALIAS TVM-Robot)
+  target_link_libraries(TVM-Robot PUBLIC RBDyn::RBDyn RBDyn::Parsers sch-core::sch-core)
+  set_target_properties(TVM-Robot PROPERTIES SOVERSION 0 VERSION 0.8.0)
+
+  set(TARGETS_EXPORT_NAME "${TARGETS_EXPORT_NAME};TVM-Robot")
 endif()
 
 if(TVM_WITH_LSSOL)
-  list(APPEND TVM_SOURCES solver/LSSOLLeastSquareSolver.cpp)
-  list(APPEND TVM_HEADERS ${TVM_INCLUDE_DIR}/solver/LSSOLLeastSquareSolver.h)
+  list(APPEND TVM_SOURCES_GROUP solver/LSSOLLeastSquareSolver.cpp)
+  list(APPEND TVM_HEADERS_GROUP ${TVM_INCLUDE_DIR}/solver/LSSOLLeastSquareSolver.h)
+  
+  add_library(TVM-LSSOL SHARED solver/LSSOLLeastSquareSolver.cpp ${TVM_INCLUDE_DIR}/solver/LSSOLLeastSquareSolver.h ${TVM_HEADERS})
+  add_library(TVM::LSSOL ALIAS TVM-LSSOL)
+  target_link_libraries(TVM-LSSOL PUBLIC eigen-lssol::eigen-lssol)
+  set_target_properties(TVM-LSSOL PROPERTIES SOVERSION 0 VERSION 0.8.0)
+
+  set(TARGETS_EXPORT_NAME "${TARGETS_EXPORT_NAME};TVM-LSSOL")
 endif()
+
 if(TVM_WITH_QLD)
-  list(APPEND TVM_SOURCES solver/QLDLeastSquareSolver.cpp)
-  list(APPEND TVM_HEADERS ${TVM_INCLUDE_DIR}/solver/QLDLeastSquareSolver.h)
+  list(APPEND TVM_SOURCES_GROUP solver/QLDLeastSquareSolver.cpp)
+  list(APPEND TVM_HEADERS_GROUP ${TVM_INCLUDE_DIR}/solver/QLDLeastSquareSolver.h)
+
+  add_library(TVM-QLD SHARED solver/QLDLeastSquareSolver.cpp ${TVM_INCLUDE_DIR}/solver/QLDLeastSquareSolver.h ${TVM_HEADERS})
+  add_library(TVM::QLD ALIAS TVM-QLD)
+  target_link_libraries(TVM-QLD PUBLIC eigen-qld::eigen-qld)
+  set_target_properties(TVM-QLD PROPERTIES SOVERSION 0 VERSION 0.8.0)
+
+  set(TARGETS_EXPORT_NAME "${TARGETS_EXPORT_NAME};TVM-QLD")
 endif()
+
 if(TVM_WITH_QUADPROG)
-  list(APPEND TVM_SOURCES solver/QuadprogLeastSquareSolver.cpp)
-  list(APPEND TVM_HEADERS ${TVM_INCLUDE_DIR}/solver/QuadprogLeastSquareSolver.h)
+  list(APPEND TVM_SOURCES_GROUP solver/QuadprogLeastSquareSolver.cpp)
+  list(APPEND TVM_HEADERS_GROUP ${TVM_INCLUDE_DIR}/solver/QuadprogLeastSquareSolver.h)
+
+  add_library(TVM-QUADPROG SHARED solver/QuadprogLeastSquareSolver.cpp ${TVM_INCLUDE_DIR}/solver/QuadprogLeastSquareSolver.h ${TVM_HEADERS})
+  add_library(TVM::QUADPROG ALIAS TVM-QUADPROG)
+  target_link_libraries(TVM-QUADPROG PUBLIC eigen-quadprog::eigen-quadprog)
+  set_target_properties(TVM-QUADPROG PROPERTIES SOVERSION 0 VERSION 0.8.0)
+
+  set(TARGETS_EXPORT_NAME "${TARGETS_EXPORT_NAME};TVM-QUADPROG")
 endif()
 
 #Helper functions to assign files to groups in IDE, mimicking the organization of files on disk
@@ -268,15 +301,30 @@ function(assign_source_group folder)
   endforeach()
 endfunction(assign_source_group)
 
-assign_source_group("sources" ${TVM_SOURCES})
-assign_source_group("headers" ${TVM_HEADERS})
+assign_source_group("sources" ${TVM_SOURCES_GROUP})
+assign_source_group("headers" ${TVM_HEADERS_GROUP})
+
+set(TARGETS_TO_INSTALL TVM)
 
 add_library(TVM SHARED ${TVM_SOURCES} ${TVM_HEADERS})
-target_link_libraries(TVM PUBLIC ${SOLVER_LIBS} tvm_3rd-party_mpark-variant)
-target_link_libraries(TVM PUBLIC ${SOLVER_LIBS})
+target_link_libraries(TVM PUBLIC tvm_3rd-party_mpark-variant)
 if(TVM_WITH_ROBOT)
-  target_link_libraries(TVM PUBLIC RBDyn::RBDyn RBDyn::Parsers sch-core::sch-core)
+  target_link_libraries(TVM PUBLIC TVM::Robot)
+  list(APPEND TARGETS_TO_INSTALL TVM-Robot)
 endif()
+if(TVM_WITH_LSSOL)
+  target_link_libraries(TVM PUBLIC TVM::LSSOL)
+  list(APPEND TARGETS_TO_INSTALL TVM-LSSOL)
+endif()
+if(TVM_WITH_QLD)
+  target_link_libraries(TVM PUBLIC TVM::QLD)
+  list(APPEND TARGETS_TO_INSTALL TVM-QLD)
+endif()
+if(TVM_WITH_QUADPROG)
+  target_link_libraries(TVM PUBLIC TVM::QUADPROG)
+  list(APPEND TARGETS_TO_INSTALL TVM-QUADPROG)
+endif()
+add_library(TVM::TVM ALIAS TVM)
 target_include_directories(TVM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include> $<INSTALL_INTERFACE:include>)
 set_target_properties(TVM PROPERTIES COMPILE_FLAGS "-DTVM_EXPORTS -DEIGEN_RUNTIME_NO_MALLOC")
 set_target_properties(TVM PROPERTIES SOVERSION 0 VERSION 0.8.0)
@@ -296,7 +344,7 @@ if(TVM_TREAT_WARNINGS_AS_ERRORS)
   endif()
 endif()
 
-install(TARGETS TVM
+install(TARGETS ${TARGETS_TO_INSTALL}
   EXPORT "${TARGETS_EXPORT_NAME}"
     LIBRARY DESTINATION "lib"
     ARCHIVE DESTINATION "lib"
