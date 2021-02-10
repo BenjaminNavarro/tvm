@@ -307,6 +307,7 @@ assign_source_group("headers" ${TVM_HEADERS_GROUP})
 set(TARGETS_TO_INSTALL TVM)
 
 add_library(TVM SHARED ${TVM_SOURCES} ${TVM_HEADERS})
+set_target_properties(TVM PROPERTIES CXX_EXTENSIONS NO)
 target_link_libraries(TVM PUBLIC tvm_3rd-party_mpark-variant)
 if(TVM_WITH_ROBOT)
   target_link_libraries(TVM PUBLIC TVM::Robot)
